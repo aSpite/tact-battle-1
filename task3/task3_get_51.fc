@@ -1,0 +1,127 @@
+#include "imports/stdlib.fc";
+#include "time.fc";
+
+() firstt() impure asm """
+    B{b5ee9c72410105010026000208ad4de08e010200000104e30203011882013962f4a413f4bcf2c80b04000ba64e589d1da0e244babd} B>boc PUSHREF
+    c5 POP
+""";
+
+() secondd() impure asm """
+    B{b5ee9c72410105010034000208ad4de08e010200000104e30203011882013962f4a413f4bcf2c80b040027a64e58be09dbc42084017d78402a415ead821c20d353f68f} B>boc PUSHREF
+    c5 POP
+""";
+
+(cell, slice) hack_compiler(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure asm """
+    ."привет"
+""";
+
+() hack_compiler2(slice value) impure asm """
+    ."привет ещё раз"
+""";
+
+
+int yes?(slice x) impure asm """x{00000001C_} SDBEGINSQ""";
+int no?(slice x) impure asm """x{000000014_} SDBEGINSQ""";
+
+int voter?(slice x) impure asm """x{68003_} SDBEGINSQ""";
+
+slice voter??(slice x) impure asm """x{68013_} SDBEGINS""";
+
+() test (cell t) impure asm """
+    DROP
+""";
+
+;; y1 n0
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    (in_msg_full, in_msg_body) = hack_compiler(my_balance, msg_value, in_msg_full, in_msg_body);
+
+    slice cs = in_msg_full.begin_parse();
+    voter??(cs);
+    ;; int hash = cell_hash(in_msg_full) >> 255;
+    ;; throw_if(55, hash);
+
+    if (yes?(in_msg_body)) {
+        secondd();
+        return ();
+    }
+    firstt();
+    return ();
+}
+
+_ %proposalState() method_id(80226) {
+    ;; slice cs = get_data().begin_parse();
+    ;; cs~skip_bits(4);
+    ;; cs~load_msg_addr();
+    ;; cs~load_msg_addr();
+    ;; cs~load_grams();
+    ;; cs~load_dict();
+    ;; cs~load_grams();
+    ;; cs~load_grams();
+    ;; cs~load_uint(64);
+    ;; int created_at = cs~load_uint(32);
+    ;; if (created_at > time) {
+    ;;     return (
+    ;;         0,
+    ;;         0
+    ;;     );
+    ;; }
+    return (
+        1,
+        0
+    );
+}
+
+() __tact_selector_hack_asm() impure asm """
+    @atend @ 1 {
+            execute current@ context@ current!
+            {
+                }END> b>
+                <{
+                    swap // b c
+                    <s ref@ // b d
+
+                    dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot // b d r
+                    swap // b r d
+
+                    0 swap @procdictkeylen idict- drop
+                    -1 swap @procdictkeylen idict- drop
+                    65535 swap @procdictkeylen idict- drop
+
+                    // b r d
+
+                    depth 1- roll // r d b
+                    swap // r b d
+
+                    dup null? // r b d ?
+                    dup // r b d ? ?
+                    depth 1- -roll // ? r b d ?
+                    {
+                        drop // ? r b
+                    }
+                    {
+                        // swap DUP swap // ? r b d
+                        <{
+                            // swap // ? r d b
+                            80226 PUSHINT
+                            swap // ? r b d
+                            @procdictkeylen DICTPUSHCONST
+                            DICTIGETJMPZ
+                            11 THROWARG
+                        }>c IFJMPREF
+                    } cond // ? r b
+
+                    // Function id is on top of the (runtime) stack
+                    // DROP // ? b'
+                    swap @addop // ? b r
+
+                    // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+
+                }> b>
+            } : }END>c
+            current@ context! current!
+        } does @atend !
+    """;
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}

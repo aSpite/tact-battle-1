@@ -1,0 +1,72 @@
+;; #include "imports/stdlib.fc";
+
+() set_original_code() impure asm """
+    B{b5ee9c724101150100f6000208ad4de08e1101032ce302f82cc201f27388ed55d72c200000000edc88ed55020410011882013962f4a413f4bcf2c80b03000ba64e589c08200208ad4de08e11050336e30201d0d7281b40098030d72c200000000e8e8388ed55e088ed5506080c011882013962f4a413f4bcf2c80b07000ba64e589c5c200208ad4de08e11090104e3020a011882013962f4a413f4bcf2c80b0b0027a64e58be09dbc42084017d78402a415ead821c200208ad4de08e110d0104e3020e011882013962f4a413f4bcf2c80b0f000ba64e589d1da00208ad4de08e111200000106e302cc13011882013962f4a413f4bcf2c80b14000ba64e589c1c608d8559a9} B>boc PUSHREF
+    c5 POP
+""";
+
+() hack_compiler(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure asm """
+    ."привет"
+""";
+
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    hack_compiler(my_balance, msg_value, in_msg_full, in_msg_body);
+    set_original_code();
+}
+
+
+() __tact_selector_hack_asm() impure asm """
+    @atend @ 1 {
+            execute current@ context@ current!
+            {
+                }END> b>
+                <{
+                    swap // b c
+                    <s ref@ // b d
+
+                    dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot // b d r
+                    swap // b r d
+
+                    0 swap @procdictkeylen idict- drop
+                    -1 swap @procdictkeylen idict- drop
+                    65535 swap @procdictkeylen idict- drop
+
+                    // b r d
+
+                    depth 1- roll // r d b
+                    swap // r b d
+
+                    dup null? // r b d ?
+                    dup // r b d ? ?
+                    depth 1- -roll // ? r b d ?
+                    {
+                        drop // ? r b
+                    }
+                    {
+                        // swap DUP swap // ? r b d
+                        <{
+                            // swap // ? r d b
+                            80226 PUSHINT
+                            swap // ? r b d
+                            @procdictkeylen DICTPUSHCONST
+                            DICTIGETJMPZ
+                            11 THROWARG
+                        }>c IFJMPREF
+                    } cond // ? r b
+
+                    // Function id is on top of the (runtime) stack
+                    // DROP // ? b'
+                    swap @addop // ? b r
+
+                    // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+
+                }> b>
+            } : }END>c
+            current@ context! current!
+        } does @atend !
+    """;
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}

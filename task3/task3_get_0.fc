@@ -1,0 +1,96 @@
+;; #include "imports/stdlib.fc";
+;; #include "time.fc";
+
+() get_51() impure asm """
+    B{b5ee9c7241010d010097000208ad4de08e09010336e30201d0d7281b40098030d72c200000000e8e8388ed55e088ed55020408011882013962f4a413f4bcf2c80b03000ba64e589c5c200208ad4de08e09050104e30206011882013962f4a413f4bcf2c80b070027a64e58be09dbc42084017d78402a415ead821c200208ad4de08e090a00000104e3020b011882013962f4a413f4bcf2c80b0c000ba64e589d1da08cff1b22} B>boc PUSHREF
+    c5 POP
+""";
+
+() get_50() impure asm """
+    B{b5ee9c72410105010027000208ad4de08e010200000106e302cc03011882013962f4a413f4bcf2c80b04000ba64e589c1c60d31bc26d} B>boc PUSHREF
+    c5 POP
+""";
+
+
+slice hack_compiler(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure asm """
+    ."привет"
+""";
+
+int yes?(slice x) impure asm """x{00000001C_} SDBEGINSQ""";
+int no?(slice x) impure asm """x{000000014_} SDBEGINSQ""";
+
+int storage_fees() impure asm "STORAGEFEES";
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    in_msg_body = hack_compiler(my_balance, msg_value, in_msg_full, in_msg_body);
+    throw_if(51, storage_fees() > 1);
+
+    get_51();
+    if (yes?(in_msg_body)) {
+        return ();
+    }
+    get_50();
+    return ();
+}
+
+_ %proposalState() method_id(80226) {
+    return (
+        0,
+        0
+    );
+}
+
+() __tact_selector_hack_asm() impure asm """
+    @atend @ 1 {
+            execute current@ context@ current!
+            {
+                }END> b>
+                <{
+                    swap // b c
+                    <s ref@ // b d
+
+                    dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot // b d r
+                    swap // b r d
+
+                    0 swap @procdictkeylen idict- drop
+                    -1 swap @procdictkeylen idict- drop
+                    65535 swap @procdictkeylen idict- drop
+
+                    // b r d
+
+                    depth 1- roll // r d b
+                    swap // r b d
+
+                    dup null? // r b d ?
+                    dup // r b d ? ?
+                    depth 1- -roll // ? r b d ?
+                    {
+                        drop // ? r b
+                    }
+                    {
+                        // swap DUP swap // ? r b d
+                        <{
+                            // swap // ? r d b
+                            80226 PUSHINT
+                            swap // ? r b d
+                            @procdictkeylen DICTPUSHCONST
+                            DICTIGETJMPZ
+                            11 THROWARG
+                        }>c IFJMPREF
+                    } cond // ? r b
+
+                    // Function id is on top of the (runtime) stack
+                    // DROP // ? b'
+                    swap @addop // ? b r
+
+                    // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+
+                }> b>
+            } : }END>c
+            current@ context! current!
+        } does @atend !
+    """;
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}

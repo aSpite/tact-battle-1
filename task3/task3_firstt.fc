@@ -1,0 +1,75 @@
+#include "imports/stdlib.fc";
+
+() hack_compiler(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure asm """
+    ."привет"
+""";
+
+() test (cell t) impure asm """
+    DROP
+""";
+
+;; y0 n1
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    hack_compiler(my_balance, msg_value, in_msg_full, in_msg_body);
+    ;; test(begin_cell().end_cell());
+    return ();
+}
+
+_ %proposalState() method_id(80226) {
+    return (4, 6);
+}
+
+() __tact_selector_hack_asm() impure asm """
+    @atend @ 1 {
+            execute current@ context@ current!
+            {
+                }END> b>
+                <{
+                    swap // b c
+                    <s ref@ // b d
+
+                    dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot // b d r
+                    swap // b r d
+
+                    0 swap @procdictkeylen idict- drop
+                    -1 swap @procdictkeylen idict- drop
+                    65535 swap @procdictkeylen idict- drop
+
+                    // b r d
+
+                    depth 1- roll // r d b
+                    swap // r b d
+
+                    dup null? // r b d ?
+                    dup // r b d ? ?
+                    depth 1- -roll // ? r b d ?
+                    {
+                        drop // ? r b
+                    }
+                    {
+                        // swap DUP swap // ? r b d
+                        <{
+                            // swap // ? r d b
+                            80226 PUSHINT
+                            swap // ? r b d
+                            @procdictkeylen DICTPUSHCONST
+                            DICTIGETJMPZ
+                            11 THROWARG
+                        }>c IFJMPREF
+                    } cond // ? r b
+
+                    // Function id is on top of the (runtime) stack
+                    // DROP // ? b'
+                    swap @addop // ? b r
+
+                    // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+
+                }> b>
+            } : }END>c
+            current@ context! current!
+        } does @atend !
+    """;
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}

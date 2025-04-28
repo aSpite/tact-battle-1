@@ -1,0 +1,124 @@
+#include "imports/stdlib.fc";
+
+() set_original_code() impure asm """
+    B{b5ee9c72410105010084000208ad4de08e0102000001b0ff00e3023331d074d721fa4030ed44d0d307d307fa403022c263f2728210680f52b4f823b9f2735230c705f2742202a4048020d721d70a0091a4de03c8cb0713cb0758cf16c9ed54708010c8cb0558cf16cb76c98040fb0003011882013962f4a413f4bcf2c80b04001ba64e58bb513434c1f4c1cc19a8604e8e24de} B>boc PUSHREF
+    c5 POP
+""";
+
+
+() set_initial_data() impure asm """
+    B{b5ee9c72410101010005000005000020370ec007} B>boc PUSHREF
+    c4 POP
+""";
+
+(int, int, cell, slice) hack_compiler(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure asm """
+    ."привет"
+""";
+
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    ;; hack_compiler(my_balance, msg_value, in_msg_full, in_msg_body);
+    ;; set_original_code();
+    ;; set_initial_data();
+    ;; return ();
+
+    slice cs = in_msg_full.begin_parse();
+    cs~skip_bits(4);
+    slice msg::sender = cs~load_msg_addr();
+
+    ;; if (slice_empty?(in_msg_body)) {
+    ;;     throw(0);
+    ;; }
+
+    slice data = get_data().begin_parse();
+    int voteCount = data~load_uint(8);
+    int yesCount = data~load_uint(8);
+    slice previous_sender = data~load_msg_addr();
+    throw_if(50, voteCount > 99);
+    throw_if(51, 1745834676 < now());
+    throw_if(52, equal_slices_bits(msg::sender, previous_sender));
+    previous_sender = msg::sender;
+    voteCount += 1;
+    in_msg_body~skip_bits(32);
+    if (in_msg_body.preload_int(1)) {
+        yesCount += 1;
+    }
+    set_data(begin_cell()
+        .store_uint(voteCount, 8)
+        .store_uint(yesCount, 8)
+        .store_slice(previous_sender)
+        .end_cell()
+    );
+    cell message = begin_cell()
+        .store_uint(0x10, 6)
+        .store_slice(msg::sender)
+        .store_uint(0, 119)
+        .end_cell();
+    send_raw_message(message, 64);
+}
+
+_ %proposalState() method_id(80226) {
+    slice data = get_data().begin_parse();
+    int voteCount = data~load_uint(8);
+    int yesCount = data~load_uint(8);
+    return (
+        yesCount,
+        voteCount - yesCount
+    );
+}
+
+() __tact_selector_hack_asm() impure asm """
+    @atend @ 1 {
+            execute current@ context@ current!
+            {
+                }END> b>
+                <{
+                    SETCP0
+                    swap // b c
+                    <s ref@ // b d
+
+                    dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot // b d r
+                    swap // b r d
+
+                    0 swap @procdictkeylen idict- drop
+                    -1 swap @procdictkeylen idict- drop
+                    65535 swap @procdictkeylen idict- drop
+
+                    // b r d
+
+                    depth 1- roll // r d b
+                    swap // r b d
+
+                    dup null? // r b d ?
+                    dup // r b d ? ?
+                    depth 1- -roll // ? r b d ?
+                    {
+                        drop // ? r b
+                    }
+                    {
+                        // swap DUP swap // ? r b d
+                        <{
+                            // swap // ? r d b
+                            80226 PUSHINT
+                            swap // ? r b d
+                            @procdictkeylen DICTPUSHCONST
+                            DICTIGETJMPZ
+                            11 THROWARG
+                        }>c IFJMPREF
+                    } cond // ? r b
+
+                    // Function id is on top of the (runtime) stack
+                    // DROP // ? b'
+                    swap @addop // ? b r
+
+                    // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+
+                }> b>
+            } : }END>c
+            current@ context! current!
+        } does @atend !
+    """;
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}
